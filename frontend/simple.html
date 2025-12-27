@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Todo App</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .todo-item { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .completed { text-decoration: line-through; color: #999; }
+        input { padding: 5px; margin: 5px; }
+        button { padding: 5px 10px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Simple Todo App</h1>
+    
+    <div>
+        <input type="text" id="todoInput" placeholder="Add new todo...">
+        <button onclick="addTodo()">Add Todo</button>
+    </div>
+    
+    <div id="todoList"></div>
+    
+    <script>
+        let todos = [];
+        
+        async function loadTodos() {
+            try {
+                const response = await fetch('http://localhost:3000/todos');
+                const result = await response.json();
+                todos = result.data || [];
+                renderTodos();
+            } catch (error) {
+                document.getElementById('todoList').innerHTML = 
+                    '<div style="color: red;">Error loading todos: ' + error.message + '</div>';
+            }
+        }
+        
+        function renderTodos() {
+            const todoList = document.getElementById('todoList');
+            todoList.innerHTML = todos.map(todo => `
+                <div class="todo-item ${todo.completed ? 'completed' : ''}">
+                    <input type="checkbox" ${todo.completed ? 'checked' : ''} 
+                           onchange="toggleTodo(${todo.id})">
+                    <span>${todo.title}</span>
+                    <button onclick="deleteTodo(${todo.id})">Delete</button>
+                </div>
+            `).join('');
+        }
+        
+        async function addTodo() {
+            const input = document.getElementById('todoInput');
+            const title = input.value.trim();
+            
+            if (!title) return;
+            
+            try {
+                const response = await fetch('http://localhost:3000/todos', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ title, completed: false })
+                });
+                
+                if (response.ok) {
+                    input.value = '';
+                    loadTodos();
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + (error.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Connection error: ' + error.message);
+            }
+        }
+        
+        async function toggleTodo(id) {
+            const todo = todos.find(t => t.id === id);
+            if (!todo) return;
+            
+            try {
+                const response = await fetch(`http://localhost:3000/todos/${id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ completed: !todo.completed })
+                });
+                
+                if (response.ok) {
+                    loadTodos();
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + (error.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Connection error: ' + error.message);
+            }
+        }
+        
+        async function deleteTodo(id) {
+            if (!confirm('Delete this todo?')) return;
+            
+            try {
+                const response = await fetch(`http://localhost:3000/todos/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    loadTodos();
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + (error.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Connection error: ' + error.message);
+            }
+        }
+        
+        // Load todos on page load
+        loadTodos();
+        
+        // Add todo on Enter key
+        document.getElementById('todoInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addTodo();
+            }
+        });
+    </script>
+</body>
+</html>

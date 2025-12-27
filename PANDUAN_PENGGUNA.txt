@@ -1,0 +1,131 @@
+PANDUAN PENGGUNA APLIKASI TODO LIST
+
+Daftar Isi:
+1. Prasyarat
+2. Cara Menjalankan Aplikasi
+3. Menggunakan Aplikasi
+4. Mengelola Database (Opsional)
+5. Menghentikan Aplikasi
+6. Troubleshooting
+
+========================================
+
+1. PRASYARAT
+- Docker dan Docker Compose sudah terinstal di komputer Anda
+- Port 80, 3000, dan 5432 tidak digunakan oleh aplikasi lain
+
+2. CARA MENJALANKAN APLIKASI
+
+1. Buka terminal/command prompt
+2. Masuk ke direktori proyek:
+   cd c:\Users\santos\Downloads\Tubes-KOMPUTASI
+
+3. Jalankan perintah berikut untuk memulai semua layanan:
+   docker-compose up -d
+
+4. Tunggu hingga semua layanan berjalan dengan baik
+
+3. MENGGUNAKAN APLIKASI
+
+A. Melalui Antarmuka Web
+- Buka browser dan akses: http://localhost:8080
+- Fitur yang tersedia:
+  - Menambah todo baru
+  - Menandai todo sebagai selesai
+  - Menghapus todo
+
+B. Melalui API
+- Endpoint API tersedia di: http://localhost:3000
+- Contoh penggunaan API:
+
+  * Mendapatkan semua todos:
+    GET http://localhost:3000/todos
+
+  * Menambahkan todo baru:
+    POST http://localhost:3000/todos
+    Headers: {"Content-Type": "application/json"}
+    Body: {"title": "Beli buku", "description": "Buku pemrograman", "completed": false}
+
+  * Mengupdate todo:
+    PATCH http://localhost:3000/todos/1
+    Headers: {"Content-Type": "application/json"}
+    Body: {"completed": true}
+
+  * Menghapus todo:
+    DELETE http://localhost:3000/todos/1
+
+4. MENJALANKAN DAN MENGGUNAKAN PGADMIN
+
+A. Menjalankan pgAdmin
+1. Pastikan Docker Compose sudah berjalan dengan perintah:
+   docker-compose up -d
+
+2. Buka browser dan akses:
+   http://localhost:5050
+
+3. Login dengan kredensial default:
+   - Email: admin@admin.com
+   - Password: admin123
+
+B. Menggunakan pgAdmin
+1. Setelah login, klik kanan "Servers" di panel kiri
+2. Pilih "Create" > "Server..."
+3. Di tab "General", isi:
+   - Name: TodoDB (bisa disesuaikan)
+
+4. Di tab "Connection", isi:
+   - Host name/address: postgres
+   - Port: 5432
+   - Maintenance database: tododb
+   - Username: todouser
+   - Password: todopass123
+
+5. Klik "Save" untuk menyimpan koneksi
+
+5. MENGGUNAKAN NGINX SEBAGAI LOAD BALANCER
+
+A. Konfigurasi Nginx
+- Nginx sudah dikonfigurasi di file nginx.conf
+- Berjalan di port 80 (http://localhost)
+- Meneruskan permintaan ke 3 instance API (api1, api2, api3)
+
+B. Memeriksa Status Nginx
+1. Pastikan container Nginx berjalan:
+   docker ps | findstr nginx
+
+2. Melihat log Nginx:
+   docker-compose logs nginx
+
+3. Test konfigurasi Nginx:
+   docker-compose exec nginx nginx -t
+
+C. Mengakses Aplikasi Melalui Nginx
+- Aplikasi dapat diakses melalui:
+  http://localhost
+- Nginx akan mendistribusikan beban ke 3 instance API yang tersedia
+
+5. MENGENTIKAN APLIKASI
+
+Untuk menghentikan semua layanan:
+docker-compose down
+
+6. TROUBLESHOOTING
+
+- Melihat log aplikasi:
+  docker-compose logs api1
+
+- Melihat log database:
+  docker-compose logs postgres
+
+- Mereset semua data:
+  docker-compose down -v
+  docker-compose up -d
+
+- Jika ada masalah dengan port yang digunakan:
+  - Pastikan tidak ada aplikasi lain yang menggunakan port 80, 3000, atau 5432
+  - Atau ubah konfigurasi port di file docker-compose.yml
+
+Untuk bantuan lebih lanjut, silakan hubungi tim pengembang.
+
+========================================
+Aplikasi Todo List - © 2025
