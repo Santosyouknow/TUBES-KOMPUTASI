@@ -21,28 +21,21 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // PostgreSQL connection
-const { Client } = require('pg');
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: 5432,
+});
 
 async function createTodo(title, completed, description = '') {
-  const client = new Client({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: 5432,
-  });
-  
-  try {
-    await client.connect();
-    const query = {
-      text: 'INSERT INTO todos (title, completed, description, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW()) RETURNING *',
-      values: [title, Boolean(completed), description],
-    };
-    const result = await client.query(query);
-    return result.rows[0];
-  } finally {
-    await client.end();
-  }
+  const query = {
+    text: 'INSERT INTO todos (title, completed, description, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW()) RETURNING *',
+    values: [title, Boolean(completed), description],
+  };
+  const result = await pool.query(query);
+  return result.rows[0];
 }
 
 // Redis connection
@@ -70,21 +63,8 @@ app.get('/health', (req, res) => {
 });
 
 async function getAllTodos() {
-  const client = new Client({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: 5432,
-  });
-  
-  try {
-    await client.connect();
-    const result = await client.query('SELECT * FROM todos ORDER BY created_at DESC');
-    return result.rows;
-  } finally {
-    await client.end();
-  }
+  const result = await pool.query('SELECT * FROM todos ORDER BY created_at DESC');
+  return result.rows;
 }
 
 // Get all todos (dengan caching)
