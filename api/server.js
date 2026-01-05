@@ -21,29 +21,13 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // PostgreSQL connection
-const { Client } = require('pg');
-
-async function createTodo(title, completed, description = '') {
-  const client = new Client({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: 5432,
-  });
-  
-  try {
-    await client.connect();
-    const query = {
-      text: 'INSERT INTO todos (title, completed, description, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW()) RETURNING *',
-      values: [title, Boolean(completed), description],
-    };
-    const result = await client.query(query);
-    return result.rows[0];
-  } finally {
-    await client.end();
-  }
-}
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: 5432,
+});
 
 // Redis connection
 let redisClient;
@@ -61,30 +45,87 @@ let redisClient;
 })();
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
+app.get('/health', async (req, res) => {
+  const health = {
     status: 'healthy',
     instance: process.env.INSTANCE_NAME || 'unknown',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    checks: {
+      database: 'unknown',
+      redis: 'unknown'
+    }
+  };
+
+  try {
+    // Check database connection
+    const dbResult = await pool.query('SELECT 1');
+    health.checks.database = 'healthy';
+  } catch (error) {
+    health.checks.database = 'unhealthy';
+    health.status = 'unhealthy';
+  }
+
+  try {
+    // Check Redis connection
+    if (redisClient && redisClient.isOpen) {
+      await redisClient.ping();
+      health.checks.redis = 'healthy';
+    } else {
+      health.checks.redis = 'unhealthy';
+      health.status = 'unhealthy';
+    }
+  } catch (error) {
+    health.checks.redis = 'unhealthy';
+    health.status = 'unhealthy';
+  }
+
+  const statusCode = health.status === 'healthy' ? 200 : 503;
+  res.status(statusCode).json(health);
+});
+
+// Readiness probe endpoint
+app.get('/ready', async (req, res) => {
+  try {
+    // Check if database is ready
+    await pool.query('SELECT 1');
+    
+    // Check if Redis is ready
+    if (redisClient && redisClient.isOpen) {
+      await redisClient.ping();
+    } else {
+      return res.status(503).json({ status: 'not ready', reason: 'Redis not connected' });
+    }
+    
+    res.status(200).json({ 
+      status: 'ready',
+      instance: process.env.INSTANCE_NAME || 'unknown',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(503).json({ 
+      status: 'not ready', 
+      reason: error.message,
+      instance: process.env.INSTANCE_NAME || 'unknown',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Liveness probe endpoint (simpler check)
+app.get('/live', (req, res) => {
+  res.status(200).json({ 
+    status: 'alive',
+    instance: process.env.INSTANCE_NAME || 'unknown',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
   });
 });
 
 async function getAllTodos() {
-  const client = new Client({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: 5432,
-  });
-  
-  try {
-    await client.connect();
-    const result = await client.query('SELECT * FROM todos ORDER BY created_at DESC');
-    return result.rows;
-  } finally {
-    await client.end();
-  }
+  const result = await pool.query('SELECT * FROM todos ORDER BY created_at DESC');
+  return result.rows;
 }
 
 // Get all todos (dengan caching)
@@ -133,16 +174,19 @@ app.post('/todos', async (req, res) => {
       return res.status(400).json({ error: 'Title is required' });
     }
 
-    console.log('Calling createTodo function...');
-    const newTodo = await createTodo(title, completed, description);
-    console.log('createTodo result:', newTodo);
+    console.log('Creating todo...');
+    const result = await pool.query(
+      'INSERT INTO todos (title, completed, description, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW()) RETURNING *',
+      [title, Boolean(completed), description]
+    );
+    console.log('Todo created:', result.rows[0]);
 
     // Invalidate cache
     await redisClient.del('todos:all');
 
     res.status(201).json({
       instance: process.env.INSTANCE_NAME,
-      data: newTodo
+      data: result.rows[0]
     });
   } catch (error) {
     console.error('Error creating todo:', error);
