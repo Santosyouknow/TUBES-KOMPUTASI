@@ -5,7 +5,7 @@ Daftar Isi:
 2. Cara Menjalankan Aplikasi
 3. Menggunakan Aplikasi
 4. Mengelola Database (Opsional)
-5. Menghentikan Aplikasi
+5. Menghentikan & Menghapus Semua Container
 6. Troubleshooting
 
 ========================================
@@ -18,12 +18,18 @@ Daftar Isi:
 
 1. Buka terminal/command prompt
 2. Masuk ke direktori proyek:
-   cd c:\Users\santos\Downloads\Tubes-KOMPUTASI
+   cd c:\Users\TOSHIBA\Downloads\TUBES-KOMPUTASI
 
-3. Jalankan perintah berikut untuk memulai semua layanan:
-   docker-compose up -d
+3. Jalankan script berikut untuk memulai dan mengelola aplikasi:
+   - Untuk Windows: ./START_APP.bat
+   - Untuk Mac/Linux: ./start_app.sh
 
-4. Tunggu hingga semua layanan berjalan dengan baik
+4. Ikuti menu interaktif yang muncul:
+   1. Start aplikasi (Docker Compose)
+   2. Scale services (horizontal scaling)
+   3. Jalankan load test
+   4. Exit
+   5. Stop dan hapus semua container yang berjalan
 
 3. MENGGUNAKAN APLIKASI
 
@@ -104,12 +110,20 @@ C. Mengakses Aplikasi Melalui Nginx
   http://localhost
 - Nginx akan mendistribusikan beban ke 3 instance API yang tersedia
 
-5. MENGENTIKAN APLIKASI
+6. MENGHENTIKAN & MENGHAPUS SEMUA CONTAINER
 
-Untuk menghentikan semua layanan:
-docker-compose down
+A. Melalui script (menu interaktif):
+- Pilih opsi "Stop dan hapus semua container yang berjalan" pada START_APP.bat atau start_app.sh
 
-6. TROUBLESHOOTING
+B. Manual (Command Prompt/Terminal):
+- Untuk Windows PowerShell:
+  docker stop $(docker ps -q)
+  docker rm $(docker ps -aq)
+- Untuk Mac/Linux:
+  docker stop $(docker ps -q)
+  docker rm $(docker ps -aq)
+
+7. TROUBLESHOOTING
 
 - Melihat log aplikasi:
   docker-compose logs api1
@@ -125,7 +139,9 @@ docker-compose down
   - Pastikan tidak ada aplikasi lain yang menggunakan port 80, 3000, atau 5432
   - Atau ubah konfigurasi port di file docker-compose.yml
 
+- Jika scaling tidak cukup untuk ribuan user, pertimbangkan untuk menggunakan Docker Swarm/Kubernetes dan load balancer eksternal.
+
 Untuk bantuan lebih lanjut, silakan hubungi tim pengembang.
 
 ========================================
-Aplikasi Todo List - © 2025
+Aplikasi Todo List - © 2026
